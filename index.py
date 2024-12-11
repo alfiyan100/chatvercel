@@ -1,6 +1,14 @@
-import random
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+import os
+from flask import Flask, request
+from telegram import Update, Bot
+from telegram.ext import Dispatcher, CommandHandler, MessageHandler, filters
+
+# Inisialisasi Flask app
+app = Flask(__name__)
+
+# Inisialisasi bot
+bot = Bot(token=os.environ["7881351318:AAEUSNn1P8C5TB-EAu8vPmH4wlkgFqeSk9o"])
+dispatcher = Dispatcher(bot, None, workers=0)
 
 # Database sederhana
 waiting_list = []
@@ -9,7 +17,7 @@ user_ids = set()
 CHANNEL_ID = '@rzbotkep'  # Ganti dengan ID channel atau grup Anda
 
 # Fungsi untuk memulai pencarian pasangan
-async def search(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def search(update: Update, context):
     user_id = update.message.from_user.id
     user_ids.add(user_id)
     if user_id in active_chats:
@@ -26,7 +34,7 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⌛ Menunggu pengguna lain untuk terhubung...")
 
 # Fungsi untuk mengakhiri obrolan
-async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def stop(update: Update, context):
     user_id = update.message.from_user.id
     if user_id in active_chats:
         partner_id = active_chats.pop(user_id)
@@ -37,12 +45,12 @@ async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Anda tidak sedang dalam obrolan.")
 
 # Fungsi untuk mengganti pasangan obrolan
-async def next(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def next(update: Update, context):
     await stop(update, context)
     await search(update, context)
 
 # Fungsi untuk menangani pesan teks
-async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_text_message(update: Update, context):
     user_id = update.message.from_user.id
     user_ids.add(user_id)
     full_name = f"{update.message.from_user.first_name} {update.message.from_user.last_name or ''}".strip()
@@ -55,7 +63,7 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
     await context.bot.send_message(chat_id=CHANNEL_ID, text=f"Dari {full_name} (@{username}): {update.message.text}")
 
 # Fungsi untuk menangani pesan foto
-async def handle_photo_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_photo_message(update: Update, context):
     user_id = update.message.from_user.id
     user_ids.add(user_id)
     full_name = f"{update.message.from_user.first_name} {update.message.from_user.last_name or ''}".strip()
@@ -72,7 +80,7 @@ async def handle_photo_message(update: Update, context: ContextTypes.DEFAULT_TYP
     await context.bot.send_photo(chat_id=CHANNEL_ID, photo=photo_file, caption=caption)
 
 # Fungsi untuk menangani pesan video
-async def handle_video_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_video_message(update: Update, context):
     user_id = update.message.from_user.id
     user_ids.add(user_id)
     full_name = f"{update.message.from_user.first_name} {update.message.from_user.last_name or ''}".strip()
@@ -89,7 +97,7 @@ async def handle_video_message(update: Update, context: ContextTypes.DEFAULT_TYP
     await context.bot.send_video(chat_id=CHANNEL_ID, video=video_file, caption=caption)
 
 # Fungsi untuk menangani voice note
-async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_voice_message(update: Update, context):
     user_id = update.message.from_user.id
     user_ids.add(user_id)
     full_name = f"{update.message.from_user.first_name} {update.message.from_user.last_name or ''}".strip()
@@ -106,23 +114,28 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
     await context.bot.send_voice(chat_id=CHANNEL_ID, voice=voice_file, caption=caption)
 
 # Fungsi untuk memulai bot
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start(update: Update, context):
     user_id = update.message.from_user.id
     user_ids.add(user_id)
     await update.message.reply_text("Selamat datang di Anonymous Chat! Ketik /search untuk mencari pasangan obrolan, /stop untuk mengakhiri obrolan, atau /next untuk mengganti pasangan.")
 
-# Konfigurasi Bot
-if __name__ == '__main__':
-    bot_token = '7881351318:AAEUSNn1P8C5TB-EAu8vPmH4wlkgFqeSk9o'
-    app = ApplicationBuilder().token(bot_token).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("search", search))
-    app.add_handler(CommandHandler("stop", stop))
-    app.add_handler(CommandHandler("next", next))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_message))
-    app.add_handler(MessageHandler(filters.PHOTO, handle_photo_message))
-    app.add_handler(MessageHandler(filters.VIDEO, handle_video_message))
-    app.add_handler(MessageHandler(filters.VOICE, handle_voice_message))
+# Tambahkan handler ke dispatcher
+dispatcher.add_handler(CommandHandler("start", start))
+dispatcher.add_handler(CommandHandler("search", search))
+dispatcher.add_handler(CommandHandler("stop", stop))
+dispatcher.add_handler(CommandHandler("next", next))
+dispatcher.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_message))
+dispatcher.add_handler(MessageHandler(filters.PHOTO, handle_photo_message))
+dispatcher.add_handler(MessageHandler(filters.VIDEO, handle_video_message))
+dispatcher.add_handler(MessageHandler(filters.VOICE, handle_voice_message))
 
-    print("Bot sedang berjalan...")
-    app.run_polling()
+# Endpoint webhook
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    if request.method == "POST":
+        update = Update.de_json(request.get_json(force=True), bot)
+        dispatcher.process_update(update)
+        return "OK", 200
+
+if __name__ == "__main__":
+    app.run(port=5000)
