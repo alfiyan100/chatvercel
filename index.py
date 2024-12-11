@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request
+from flask import Flask, request, send_from_directory, render_template_string
 from telegram import Update, Bot
 from telegram.ext import Updater, Dispatcher, CommandHandler, MessageHandler, Filters
 import magic  # Import python-magic
@@ -7,7 +7,7 @@ import magic  # Import python-magic
 # Inisialisasi Flask app
 app = Flask(__name__)
 
-# Inisialisasi bot dengan token langsung
+# Inisialisasi bot dengan token langsung (sebaiknya simpan token di variabel lingkungan untuk keamanan)
 bot = Bot(token="7881351318:AAEUSNn1P8C5TB-EAu8vPmH4wlkgFqeSk9o")
 
 # Inisialisasi Updater dan Dispatcher
@@ -134,6 +134,38 @@ dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_te
 dispatcher.add_handler(MessageHandler(Filters.photo, handle_photo_message))
 dispatcher.add_handler(MessageHandler(Filters.video, handle_video_message))
 dispatcher.add_handler(MessageHandler(Filters.voice, handle_voice_message))
+
+# Endpoint untuk menampilkan pesan "Selamat Datang"
+@app.route('/', methods=['GET'])
+def welcome():
+    welcome_html = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Selamat Datang</title>
+        <style>
+            body {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+                font-family: Arial, sans-serif;
+                background-color: #f0f0f0;
+            }
+            h1 {
+                color: #333;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Selamat Datang</h1>
+    </body>
+    </html>
+    """
+    return render_template_string(welcome_html)
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
