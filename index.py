@@ -7,7 +7,7 @@ from telegram.ext import Dispatcher, CommandHandler, MessageHandler, filters, Co
 app = Flask(__name__)
 
 # Inisialisasi bot
-bot = Bot(token=os.environ["7881351318:AAEUSNn1P8C5TB-EAu8vPmH4wlkgFqeSk9o"])
+bot = Bot(token=os.environ["TELEGRAM_BOT_TOKEN"])
 dispatcher = Dispatcher(bot, None, workers=0)
 
 # Database sederhana
